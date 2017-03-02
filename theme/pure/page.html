@@ -1,0 +1,15 @@
+{{template "meta.html" .}}
+<div class="pure-g-r" id="layout">
+    {{template "sidebar.html" .}}
+    <div class="pure-u-1">
+        <div class="content">
+            <div class="post">
+                <h1 class="post-header">{{.Page.Title}}</h1>
+                <div class="post-description">{{.Page.ContentHTML}}</div>
+            </div>
+            {{template "embed/comment.html" .}}
+        </div>
+        {{template "footer.html" .}}
+    </div>
+</div>
+{{template "footer_js.html" .}}

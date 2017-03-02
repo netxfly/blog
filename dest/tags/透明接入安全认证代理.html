@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html>
+<head lang="en">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+    <title>透明接入安全认证代理 - 记录人生旅程中的迷茫与探索</title>
+    <meta name="keywords" content="netxfly,信息安全,程序开发,linux,人生,理想"/>
+    <meta name="description" content="信息安全,程序开发,linux,读书"/>
+    <link rel="stylesheet" href="/css/bootstrap.min.css"/>
+    <link rel="stylesheet" href="/css/prism.css"/>
+    <link rel="stylesheet" href="/css/style.css"/>
+</head>
+<body class="post-tag" data-perma="post-tag-透明接入安全认证代理">
+<header id="header">
+    <div class="container">
+        <div class="header clearfix">
+            <nav id="site-nav">
+                <ul class="nav nav-inverse nav-pills pull-right">
+                    <li role="presentation" class="">
+                        <a href="/" >Home
+                        </a>
+                    </li>
+                    <li role="presentation" class="">
+                        <a href="/archive" >Archive
+                        </a>
+                    </li>
+                    <li role="presentation" class="">
+                        <a href="/about" >About
+                        </a>
+                    </li>
+                    <li role="presentation" class="">
+                        <a href="/resource" >Resource
+                        </a>
+                    </li>
+                    <li role="presentation" class="">
+                        <a href="/links" >Links
+                        </a>
+                    </li>
+                </ul>
+            </nav>
+            <h3 id="site-title">
+                <a href="/">记录人生旅程中的迷茫与探索 <sup>netxfly的随笔</sup></a>
+            </h3>
+        </div>
+    </div>
+</header>
+
+<section id="main">
+    <div class="container">
+        <div id="article-list">
+            <h2 class="tag text-center">透明接入安全认证代理</h2>
+            <article class="article">
+                <div class="row">
+                    <div class="col-md-10 col-md-offset-1 panel panel-default">
+                        <header class="header">
+                            <div class="meta">
+                        <span class="date">
+                            <span class="month">7</span>
+                            <span class="day">13</span>
+                        </span>
+                            </div>
+                            <h3 class="title">
+                                <a href="/2016/7/13/Transparent-embedding-security-proxy.html">安全认证代理的透明接入</a>
+                            </h3>
+                        </header>
+                        <section class="brief"><h2 id="背景">背景</h2>
+
+<p>之前在sina做一个移动办公应用的安全对外发布代理（新浪口袋）时，是在openresty中的location中专门提供了认证的接口，app需要认证时将认证信息全部发给代理，在代理层进行动态口令与静态口令的认下。</p>
+
+<p>认证通过后，再由代理在header中附加了认证信息给后端。现在又接到了类似项目，就改为了透明接入的方式，现有的客户端与服务器端只需做很少的改动就能接入。
+不方便多说，只简单提一下：
+1. 安全代理层与后端共有2重的身份认证，访问后端服务器时，如果代理层的身份认证没通过则返回一个特定的json串，客户端app就知道该发起登录认证的请求了。
+1. 认证的接口是在白名单中放行的，不做访问控制，但是代理会劫持请求的响应信息，通过后端服务器的返回结果，代理便可判断用户是否登录成功，是否颁发有实效的token。</p>
+
+<h2 id="openresty中的配置">openresty中的配置</h2>
+
+<p>openresty的配置大致如下：</p>
+<pre><code class="language-bash">
+upstream proxy_app.xsec.io {
+        server 1.1.1.1:443;
+    }
+
+ server {
+        listen       443;
+        server_name  app.xsec.io;
+        client_max_body_size 100m;
+        charset utf-8;
+        access_log      /var/log/nginx/app.xsec.io-access.log Merpproxy;
+        error_log       /var/log/nginx/app.xsec.io-debug.log debug;
+
+        location ~* ^/(login/CheckPhone|login/checkCode|APP) {
+                proxy_connect_timeout 360s;
+                proxy_read_timeout 5400s;
+                proxy_send_timeout 5400s;
+                proxy_pass_header Server;
+                proxy_set_header Host $http_host;
+                proxy_redirect off;
+                proxy_set_header X-Real-IP $remote_addr;
+                proxy_set_header X-Scheme $scheme;
+                proxy_pass http://proxy_app.xsec.io;
+        }
+
+        location ~* ^/login/CheckLdap {
+
+            content_by_lua '
+            helper.get_post_info()
+            ';
+
+            header_filter_by_lua '
+            local result, username, device_info = helper.chk_login()
+            local timestamp = ngx.time()
+            local secure_key = config.access_key.key
+            local sign = access_key.make_sign(secure_key, timestamp)
+
+            if result then
+                local resp = access_key.create_key(username, device_info, key, sign, timestamp, 0)
+                -- ngx.log(ngx.DEBUG, string.format(&quot;resp:%s, resp.text:%s, type:%s&quot;, resp, resp.text, type(resp.text)))
+                -- helper.make_resp(resp)
+                ngx.ctx.resp = resp or {}
+                helper.make_cookies(resp)
+            end
+            ';
+
+            body_filter_by_lua '
+                local body = helper.get_resp_body()
+                ngx.log(ngx.DEBUG, string.format(&quot;body:%s, type of body:%s&quot;, body, type(body)))
+                local resp = ngx.ctx.resp or {}
+                ngx.log(ngx.DEBUG, string.format(&quot;resp:%s, resp.text:%s, type:%s&quot;, resp, resp.text, type(resp.text)))
+                helper.make_resp(body, resp)
+            ';
+
+            proxy_set_header authorization xsec_security;
+            proxy_pass_header Server;
+            # proxy_set_header Host $http_host;
+            proxy_set_header Host proxy_app.xsec.io;
+            proxy_redirect off;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Scheme $scheme;
+            proxy_pass $scheme://proxy_app.xsec.io;
+            }
+            error_page  404              /index.html;
+            error_page   500 502 503 504  /index.html;
+    }
+
+# http protocol
+server {
+        listen       80;
+        ssl off;
+        server_name  proxy_app.xsec.io;
+        rewrite ^(.*) https://app.mioffice.cn/$1 permanent;
+    }
+
+</code></pre>
+
+<h3 id="代码解读">代码解读</h3>
+
+<ul>
+<li>location ~* ^/(login/CheckPhone|login/checkCode|APP)是设备激活阶段需要的短信验证码获取及输入阶段，不做拦截</li>
+
+<li><p>location ~* ^/login/CheckLdap是输入加密的ldap密码阶段，我们在透明接入就实现在这部分：</p>
+
+<ul>
+<li>content_by_lua阶段中获取了用户的登录信息，比如用户名、设备信息等</li>
+<li>header_filter_by_lua阶段判断了用户是否登录成功（成功的话服务器会set-cookie，否则不会set-cookie），也可以放在body_filter_by_lua阶段，根据服务器返回的json判断
+
+<ol>
+<li>登录成功的话，代理服务器会生成与账户、设备唯一绑定的认证key，并设备cookies</li>
+<li>将认证key保存到ctx中，方便在body_filter_by_lua阶段中使用</li>
+</ol></li>
+<li>body_filter_by_lua阶段中拦截了服务器返回的json，反序列化后将代理的认证信息插入后再以json的方式发给客户端
+<br /></li>
+</ul></li>
+
+<li><p>客户端激活成功后，不再使用ldap（ldap一旦泄漏，所有内网的系统都可以登录了），只使用代理维护的key与totp进行双因素认证。</p></li>
+</ul>
+</section>
+                        <aside class="aside clearfix">
+                            <a class="btn btn-primary btn-lg pull-right" href="/2016/7/13/Transparent-embedding-security-proxy.html">Read More</a>
+                        </aside>
+                    </div>
+                </div>
+            </article>
+            
+            <div class="article-pager text-center">
+                
+                
+            </div>
+        </div>
+    </div>
+</section>
+<footer id="footer">
+    <div class="container text-center">
+        <p>© 2015 记录人生旅程中的迷茫与探索.
+            <a href="http://creativecommons.org/licenses/by/3.0/">Some rights reserved </a> |
+            <a href="/feed.xml">Feed</a> |
+            <a href="/sitemap.xml">Sitemap</a>
+        </p>
+        <p>Powered by <a href="https://github.com/go-xiaohei/pugo">PuGo 0.10.0 (beta)</a>. Theme by Default.
+        </p>
+        
+    
+    
+
+    </div>
+</footer>
+<script src="/js/jquery-2.1.4.min.js"></script>
+<script src="/js/bootstrap.min.js"></script>
+<script src="/js/prism.min.js"></script>
+<script>
+    $(document).ready(function () {
+        $("pre code").addClass("line-numbers")
+    });
+</script>
+</body>
+</html>

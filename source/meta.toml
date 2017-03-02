@@ -1,0 +1,84 @@
+[meta]
+# site title, show in <title>
+title = "记录人生旅程中的迷茫与探索"
+
+# subtitle, words after title, in description
+subtitle = "netxfly的随笔"
+
+# print in html <meta>
+keyword = "netxfly,信息安全,程序开发,linux,人生,理想"
+
+# print in html <meta>
+desc = "信息安全,程序开发,linux,读书"
+
+# build links for feed, sitemap
+domain = "www.xsec.io"
+
+# root path for site# if empty, build as http://{domain}/
+root = "http://www.xsec.io/"
+
+# cover page for homepage
+cover = "@media/cover.jpg"
+
+# global language,
+# its used in global posts and themes, unless pages set lang
+lang = "en"
+
+
+[[nav]]
+link = "/"
+title = "Home"
+i18n = "home"
+# set nav to active status
+hover = "index"
+blank = false
+
+[[nav]]
+link = "/archive"
+title = "Archive"
+i18n = "archive"
+hover = "archive"
+
+[[nav]]
+link = "/about"
+title = "About"
+i18n = "about"
+hover = "about"
+
+[[nav]]
+link = "/resource"
+title = "Resource"
+i18n = "resource"
+hover = "resource"
+
+[[nav]]
+link = "/links"
+title = "Links"
+i18n = "links"
+hover = "links"
+
+
+[[author]]
+name = "pugo"
+email = ""
+url = "http://www.xsec.io"
+avatar = "@media/author.png"
+bio = "从事过信息安全、运维和开发的过气信息安全从业者"
+
+# comment settings
+# please only set one value
+# if multi values, it prints all comment iframes
+[comment]
+# disqus site name
+disqus = "xsec"
+# duoshuo short name
+duoshuo = ""
+
+# analytics settings
+# please only set one value
+# if multi values, it prints all analytics codes
+[analytics]
+# google analytics, need as UA-XXXXX-Y
+google = ""
+# baidu analytics, need hash-code in hm.js?hash-code
+baidu = ""

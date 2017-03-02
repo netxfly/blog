@@ -1,0 +1,724 @@
+<!DOCTYPE html>
+<html>
+<head lang="en">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+    <title>自制蜜罐之前端部分 - 记录人生旅程中的迷茫与探索</title>
+    <meta name="keywords" content="netxfly,信息安全,程序开发,linux,人生,理想"/>
+    <meta name="description" content="how-to-develop-a-honeypot"/>
+    <link rel="stylesheet" href="/css/bootstrap.min.css"/>
+    <link rel="stylesheet" href="/css/prism.css"/>
+    <link rel="stylesheet" href="/css/style.css"/>
+</head>
+<body class="post" data-perma="how-to-develop-a-honeypot">
+<header id="header">
+    <div class="container">
+        <div class="header clearfix">
+            <nav id="site-nav">
+                <ul class="nav nav-inverse nav-pills pull-right">
+                    <li role="presentation" class="">
+                        <a href="/" >Home
+                        </a>
+                    </li>
+                    <li role="presentation" class="">
+                        <a href="/archive" >Archive
+                        </a>
+                    </li>
+                    <li role="presentation" class="">
+                        <a href="/about" >About
+                        </a>
+                    </li>
+                    <li role="presentation" class="">
+                        <a href="/resource" >Resource
+                        </a>
+                    </li>
+                    <li role="presentation" class="">
+                        <a href="/links" >Links
+                        </a>
+                    </li>
+                </ul>
+            </nav>
+            <h3 id="site-title">
+                <a href="/">记录人生旅程中的迷茫与探索 <sup>netxfly的随笔</sup></a>
+            </h3>
+        </div>
+    </div>
+</header>
+
+<section id="main">
+    <div class="container">
+        <div id="article-single">
+            <article class="article">
+                <div class="row">
+                    <div class="col-md-10 col-md-offset-1 panel panel-default">
+                        <header class="header">
+                            <div class="meta">
+                        <span class="date">
+                            <span class="month">7</span>
+                            <span class="day">8</span>
+                        </span>
+                            </div>
+                            <h3 class="title">
+                                <a href="/2016/7/8/how-to-develop-a-honeypot.html">自制蜜罐之前端部分</a>
+                            </h3>
+                        </header>
+                        <aside class="aside clearfix">
+                            
+                            <a class="tag label label-info" href="/tags/%e8%87%aa%e5%88%b6%e8%9c%9c%e7%bd%90.html">自制蜜罐</a>
+                            
+                            
+                        </aside>
+                        <section class="brief"><h2 id="自制蜜罐">自制蜜罐</h2>
+
+<h3 id="背景">背景</h3>
+
+<p>生产系统的内网部署蜜罐后可以监控到黑客对内网的探测及攻击行为，方便安全工程师第一时间发现被入侵并及时止损，防止出现公司重要数据被窃取却浑然不然的情况。
+所以我们有必要在重要业务的内网机房部署蜜罐。</p>
+
+<h3 id="需求">需求</h3>
+
+<ol>
+<li>第一时间发现攻击者</li>
+<li>攻击行为及指纹记录、识别</li>
+<li>覆盖到全部的协议及端口</li>
+</ol>
+
+<p>目前市面上已经有许多商业或开源的蜜罐系统，如<a href="https://github.com/paralax/awesome-honeypots">awesome-honeypots</a>中收集了大量的开源的蜜罐系统，
+但是这些开源的蜜罐系统存在以下问题：</p>
+
+<ol>
+<li>安装、部署比较复杂、繁琐，学习成本高</li>
+<li>自定义或扩展功能的成本高</li>
+<li>覆盖不到全部的协议及端口</li>
+<li>开发进度滞后，没有覆盖到最新的redis、elastic、stuct2等漏洞的利用的监控</li>
+</ol>
+
+<p>所以我们有必要自己开发一套易于部署、覆盖全端口全协议及最新漏洞的蜜罐系统。</p>
+
+<h2 id="蜜罐架构图">蜜罐架构图</h2>
+
+<p><img src="/media/images_honeypot/topology.png" alt="架构图" /></p>
+
+<ol>
+<li>Agent
+
+<ol>
+<li>记录攻击log并发送到server中</li>
+<li>按照策略将攻击流量转到后端server</li>
+<li>定期更新policy</li>
+</ol></li>
+<li>Server:
+
+<ol>
+<li>接收来自各agent的攻击log</li>
+<li>通过策略判断是否需要报警</li>
+<li>攻击log及报警log保存、备份</li>
+</ol></li>
+<li>Backend
+
+<ol>
+<li>利用docker构建常见的各服务</li>
+<li>攻击行为记录、指纹识别</li>
+</ol></li>
+<li>Policy server
+
+<ol>
+<li>Agent和server的策略管理</li>
+</ol></li>
+</ol>
+
+<h2 id="agent的实现">Agent的实现</h2>
+
+<p>Agent利用iptables记录了对Agent所有端口的tcp及udp协议的访问log，并用iptables将请求按policy指定的规则转到了后端的攻击行为识别服务器中。</p>
+
+<h3 id="iptables基础">iptables基础</h3>
+
+<p>netfilter/iptables（简称为iptables）组成Linux平台下的包过滤防火墙，与大多数的Linux软件一样，这个包过滤防火墙是免费的，它可以代替昂贵的商业防火墙解决方案，完成封包过滤、封包重定向和网络地址转换（NAT）等功能。
+Netfilter是Linux操作系统核心层内部的一个数据包处理模块，它具有如下功能：</p>
+
+<ol>
+<li>网络地址转换(Network Address Translate)</li>
+<li>数据包内容修改</li>
+<li>包过滤的防火墙功能</li>
+</ol>
+
+<p>真正实现防火墙功能的是处于内核级的netfilter，iptables是应用层的netfilter的管理工具，netfilter与iptables在linux操作系统中的位置及角色如下图所示：</p>
+
+<p><img src="/media/images_honeypot/iptables1.png" alt="iptables1" /></p>
+
+<p>Netfilter提供了数据包的5个Hook Point，当有数据通过这些位置时，钩子就会触发，从而可以调用我们自定义的函数，这5个挂载点分别为：</p>
+
+<ul>
+<li>NF_IP_PRE_ROUTING</li>
+<li>NF_IP_LOCAL_IN</li>
+<li>NF_IP_FORWARD</li>
+<li>NF_IP_LOCAL_OUT</li>
+<li>NF_IP_POST_ROUTING</li>
+</ul>
+
+<p>Netfilter所设置的规则是存放在内核内存中的，而 iptables 是一个应用层的应用程序，它通过 Netfilter 放出的接口来对存放在内核内存中的 XXtables（Netfilter的配置表）进行修改。</p>
+
+<p>这个XXtables由表tables、链chains、规则rules组成，iptables在应用层负责修改这个规则文件。</p>
+
+<p>iptables内置了4个表，即Filter表、Nat表、Mangle表和Raw表，分别用于实现包过滤、网络地址转换、包重构(修改)和数据跟踪处理。</p>
+
+<p>这几个表的优先顺序为Raw -&gt; Mangle -&gt; Nat -&gt; Filter。
+iptables表和链的结构如下图所示：</p>
+
+<p><img src="/media/images_honeypot/iptables2.png" alt="iptables2" /></p>
+
+<h4 id="iptables中的规则表-table">iptables中的规则表（table）</h4>
+
+<ol>
+<li>Raw表有两个链：OUTPUT、PREROUTING，作用为决定数据包是否被状态跟踪机制处理</li>
+<li>Mangle表有五个链：PREROUTING、POSTROUTING、INPUT、OUTPUT、FORWARD，作用为修改数据包的服务类型、TTL、并且可以配置路由实现QOS</li>
+<li>Nat表有三个链：PREROUTING、POSTROUTING、OUTPUT，作用为用于网络地址转换</li>
+<li>Filter表有三个链：INPUT、FORWARD、OUTPUT，作用为数据包过滤</li>
+</ol>
+
+<h4 id="iptables中的规则链接-chain">iptables中的规则链接（chain）</h4>
+
+<ol>
+<li>INPUT——进来的数据包应用此规则链中的策略。</li>
+<li>OUTPUT——外出的数据包应用此规则链中的策略。</li>
+<li>FORWARD——转发数据包时应用此规则链中的策略。</li>
+<li>PREROUTING——对数据包作路由选择前应用此链中的规则，所有的数据包进来的时侯都先由这个链处理。</li>
+<li>POSTROUTING——对数据包作路由选择后应用此链中的规则，所有的数据包出来的时侯都先由这个链处理。</li>
+</ol>
+
+<h4 id="iptales中的数据流">iptales中的数据流</h4>
+
+<p><img src="/media/images_honeypot/iptables3.png" alt="iptables3" /></p>
+
+<p>iptables中的数据流可以总结为以下3句话：</p>
+
+<ol>
+<li>发往本地的包，数据流向为：PREROUTING -&gt; INPUT</li>
+<li>发往其他地址的包，数据流向为：PREROUTING -&gt; FORWARD -&gt; POSTROUTING</li>
+<li>从本地发出的包的数据流向为： OUTPUT -&gt; POSTROUTING</li>
+</ol>
+
+<h4 id="iptables规则管理">iptables规则管理</h4>
+
+<p><img src="/media/images_honeypot/iptables4.png" alt="iptables4" /></p>
+
+<p><img src="/media/images_honeypot/iptables5.png" alt="iptables5" /></p>
+
+<h4 id="iptables命令参数">iptables命令参数</h4>
+<pre><code class="language-bash">[-t 表名]：该规则所操作的哪个表，可以使用filter、nat等，如果没有指定则默认为filter
+-A：新增一条规则，到该规则链列表的最后一行
+-I：插入一条规则，原本该位置上的规则会往后顺序移动，没有指定编号则为1
+-D：从规则链中删除一条规则，要么输入完整的规则，或者指定规则编号加以删除
+-R：替换某条规则，规则替换不会改变顺序，而且必须指定编号。
+-P：设置某条规则链的默认动作
+-nL：-L、-n，查看当前运行的防火墙规则列表
+chain名：指定规则表的哪个链，如INPUT、OUPUT、FORWARD、PREROUTING等
+[规则编号]：插入、删除、替换规则时用，--line-numbers显示号码
+[-i|o 网卡名称]：i是指定数据包从哪块网卡进入，o是指定数据包从哪块网卡输出
+[-p 协议类型]：可以指定规则应用的协议，包含tcp、udp和icmp等
+[-s 源IP地址]：源主机的IP地址或子网地址
+[--sport 源端口号]：数据包的IP的源端口号
+[-d目标IP地址]：目标主机的IP地址或子网地址
+[--dport目标端口号]：数据包的IP的目标端口号
+-m：extend matches，这个选项用于提供更多的匹配参数，如：
+
+-m state --state ESTABLISHED,RELATED
+-m tcp --dport 22
+-m multiport --dports 80,8080
+-m icmp --icmp-type 8
+&lt;-j 动作&gt;：处理数据包的动作，包括ACCEPT、DROP、REJECT等
+</code></pre>
+
+<h3 id="利用shell实现一个demo">利用shell实现一个demo</h3>
+<pre><code class="language-bash">#!/bin/bash
+:&lt;&lt;BLOCK
+Copyright (c) 2016 www.xsec.io
+
+ - User: netxfly&lt;x@xsec.io&gt;
+ - Date: 2016/6/20
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the &quot;Software&quot;), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED &quot;AS IS&quot;, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+BLOCK
+
+WHITELIST_IPs=(1.1.1.1.1 111.111.111.111 222.222.222.222)
+WHITELIST_PORTS=&quot;88,96,99,55522&quot;
+BACKEND=&quot;10.10.10.10&quot;
+ATTACK_IP=&quot;9.9.9.9.9&quot;
+
+ATTACK_IP1=&quot;9.9.9.9.0/24&quot;
+UNREAL_TARGET=&quot;220.181.112.244:80&quot;
+
+# set ip_forward
+function set_ip_forward()
+{
+    /sbin/sysctl -w net.ipv4.ip_forward=1
+    sysctl -p
+}
+
+# delete custom iptables chain
+function delete_policy()
+{
+    /sbin/iptables -t nat -F 
+    /sbin/iptables -t nat -X HONEYPOT
+    /sbin/iptables -t nat -X FIREWALL_IN
+    /sbin/iptables -t nat -X FIREWALL_OUT
+
+    /sbin/iptables -t filter -F 
+    /sbin/iptables -t filter -X WHITELIST
+}
+
+# init iptables chain
+function init_policy()
+{
+    /sbin/iptables -t nat -N HONEYPOT
+    /sbin/iptables -t nat -A PREROUTING -j HONEYPOT
+
+    /sbin/iptables -t filter -N WHITELIST
+    /sbin/iptables -t filter -A INPUT -j WHITELIST
+
+    /sbin/iptables -t nat -N FIREWALL_IN
+    /sbin/iptables -t nat -A PREROUTING -j FIREWALL_IN
+    /sbin/iptables -t nat -N FIREWALL_OUT
+    /sbin/iptables -t nat -A POSTROUTING -j FIREWALL_OUT
+
+    /sbin/iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
+
+    /sbin/iptables -t nat -A HONEYPOT -i eth0 -p tcp -m state --state NEW,ESTABLISHED,RELATED -j LOG --log-prefix &quot;iptables:&quot;
+
+}
+
+# set white policy(ip white)
+function set_white_policy()
+{
+    for ip in $WHITELIST_IPs
+    do
+        /sbin/iptables -t filter -A WHITELIST -s $ip -j DROP
+    done
+}
+
+# set honeypot policy(ports white)
+function set_honeypot_policy()
+{
+    /sbin/iptables -A HONEYPOT -t nat -i eth0 -p tcp -m multiport ! --dport $WHITELIST_PORTS -j DNAT --to-destination $BACKEND
+    /sbin/iptables -A HONEYPOT -t nat -i eth0 -p udp -m multiport ! --dport $WHITELIST_PORTS -j DNAT --to-destination $BACKEND
+    # /sbin/iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
+}
+
+# start honeypot
+function StartHoneypot()
+{
+    set_ip_forward
+    init_policy
+    set_white_policy
+    set_honeypot_policy
+}
+
+# stop honeypot
+function StopHoneypot()
+{
+    delete_policy
+}
+
+function showHelp()
+{
+    echo &quot;Usage: [sudo] ./honeypot.sh  [OPTIONS]&quot;
+    echo &quot;Options:&quot;
+    echo -e &quot;\t-h | --help\t\t show this help&quot;
+    echo -e &quot;\t-start   \t\t start honeypot&quot;
+    echo -e &quot;\t-stop    \t\t stop honeypot&quot;
+}
+
+# Check if user is root
+[ $(id -u) != &quot;0&quot; ] &amp;&amp; { echo &quot;Must run as root, exit1111...&quot; &gt;&amp;2; exit 1; }
+
+while true ; do
+    case &quot;$1&quot; in
+
+        -h|--help)
+            showHelp;
+            echo &quot;&quot;
+            exit 0
+            ;;
+
+        -start|--start)
+        echo &quot;start honeypot&quot;;
+        StartHoneypot;
+        exit 0
+        ;;
+
+        -stop|--stop)
+        echo &quot;stop honeypot&quot;;
+        StopHoneypot;
+        exit 0
+        ;;
+
+        *)
+            # echo &quot;invalid option. $1&quot;
+            showHelp;
+            exit 1
+            ;;
+    esac
+done
+
+function policy_reset()
+{
+    /sbin/iptables -t nat -F FIREWALL_IN
+    /sbin/iptables -t nat -F FIREWALL_OUT
+    iptables -t nat -A FIREWALL_OUT -o eth0 -j MASQUERADE
+}
+
+# # douzhuanxingyi
+function douzhuanxingyi()
+{
+    iptables -t nat -A FIREWALL_IN  -s $ATTACK_IP -j DNAT --to-destination $ATTACK_IP
+    
+}
+
+function jinghuashuiyue()
+{
+    /sbin/iptables -t nat -A FIREWALL_IN -i eth0 -p tcp -m tcp --dport 1:65535 -s $ATTACK_IP1 -j DNAT --to-destination $UNREAL_TARGET
+}
+</code></pre>
+
+<h4 id="demo代码解读">demo代码解读</h4>
+
+<ol>
+<li>set_ip_forward函数将net.ipv4.ip_forward设为了1，这样才能开启linux的数据转发功能。</li>
+<li>init_policy中利用-N指令新建了不同的chain，目的是为了在将同类的操作放到同一个链中，防止在操作规则的过程中影响到其他的iptables规则。</li>
+<li>set_white_policy为设置白名单，来自白名单的请求直接drop掉，不会转到后端服务器；</li>
+<li>set_honeypot_policy为设置蜜罐的转发规则，除了服务器管理、监控外的其他端口外的其他请求全部转到后端</li>
+<li>douzhuanxingyi使用了金庸武侠小说《天龙八部》中武功名，指将攻击者的攻击全部反弹回去</li>
+<li>jinghuashuiyue是使用了动画片《死神》中蓝染的斩魄刀的名字：(幻觉系最强斩魄刀），指将攻击者的所有请求转到一个伪造的地址中，误导攻击者。</li>
+<li>在使用了DNAT后，需要在POSTROUTING链中设置SNAT，每条规则都需要设置，操作麻烦且容易出错，用<code>-j MASQUERADE</code>可以自动完成这些操作</li>
+</ol>
+
+<h3 id="golang实现最终的agent">golang实现最终的agent</h3>
+
+<p>相比python来说，golang写的程序无任何依赖，直接编译为一个二进制文件就能执行，所以我们选择了golang。
+agent的功能为：</p>
+
+<ol>
+<li>支持配置，配置文件中为策略的URL，转发数据的网卡名</li>
+<li>定期从策略服务器中拉取最新的策略并应用</li>
+<li>将syslog发送到后端的server中</li>
+</ol>
+
+<p>发送syslog到后端服务器的功能无需开发，centos 6默认全部为rsyslog，只需配置下rsyslog便可将日志发送到后端server，
+配置完需重启rsyslog服务/etc/init.d/rsyslog restart，配置参数如下：</p>
+<pre><code class="language-bash">[root@honeypot_agent01 agent]# cat /etc/rsyslog.d/iptables.conf 
+:msg,contains,&quot;iptables&quot;  @@111.111.111.111:514
+</code></pre>
+
+<p>111.111.111.111 为蜜罐的server，514为端口，@@表示以TCP发送log，@表示以UDP发送数据
+建议全部使用TCP，个别网络的ACL导致tcp不通时可以使用udp。</p>
+
+<p>agent的定期运行配置在cronta中，每1分钟更新一次策略</p>
+<pre><code class="language-bash">[root@honeypot_agent01 agent]# crontab -e
+*/1 * * * *  /data/honeypot/agent/honeypot_agent
+</code></pre>
+
+<p>Agent的部分代码如下：</p>
+<pre><code class="language-go">
+// Get forward policy &amp;&amp; white list
+func GetPolicy() (p Policys, err error) {
+
+    resp, err := http.Get(Url)
+    if err == nil {
+        body, _ := ioutil.ReadAll(resp.Body)
+        json.Unmarshal(body, &amp;p)
+    }
+    defer resp.Body.Close()
+    return p, err
+}
+
+// set iptables
+func SetIptables(policy Policys) {
+    // InitPolicy()
+
+    white_ip_policy := policy.Whiteip
+    // set white policy
+    for _, white_ip := range white_ip_policy {
+        fmt.Println(&quot;/sbin/iptables&quot;, &quot;-t&quot;, &quot;filter&quot;, &quot;-A&quot;, &quot;WHITELIST&quot;, &quot;-i&quot;, interfaceName, &quot;-s&quot;, white_ip, &quot;-j&quot;, &quot;DROP&quot;)
+        exec.Command(&quot;/sbin/iptables&quot;, &quot;-t&quot;, &quot;filter&quot;, &quot;-A&quot;, &quot;WHITELIST&quot;, &quot;-i&quot;, interfaceName, &quot;-s&quot;, white_ip, &quot;-j&quot;, &quot;DROP&quot;).Output()
+    }
+
+    fmt.Println(&quot;/sbin/iptables&quot;, &quot;-t&quot;, &quot;nat&quot;, &quot;-A&quot;, &quot;HONEYPOT&quot;, &quot;-i&quot;, interfaceName, &quot;-p&quot;, &quot;tcp&quot;, &quot;-m&quot;, &quot;multiport&quot;, &quot;!&quot;, &quot;--dports&quot;, strings.Join(policy.Whiteport, &quot;,&quot;), &quot;-j&quot;, &quot;DNAT&quot;, &quot;--to-destination&quot;, policy.Backend)
+    ret, err := exec.Command(&quot;/sbin/iptables&quot;, &quot;-t&quot;, &quot;nat&quot;, &quot;-A&quot;, &quot;HONEYPOT&quot;, &quot;-i&quot;, interfaceName, &quot;-p&quot;, &quot;tcp&quot;, &quot;-m&quot;, &quot;multiport&quot;, &quot;!&quot;, &quot;--dports&quot;, strings.Join(policy.Whiteport, &quot;,&quot;), &quot;-j&quot;, &quot;DNAT&quot;, &quot;--to-destination&quot;, policy.Backend).Output()
+    fmt.Println(ret, err)
+    exec.Command(&quot;/sbin/iptables&quot;, &quot;-t&quot;, &quot;nat&quot;, &quot;-A&quot;, &quot;POSTROUTING&quot;, &quot;-o&quot;, interfaceName, &quot;-j&quot;, &quot;MASQUERADE&quot;).Output()
+}
+
+// set ipv4.ip_forward
+func SetIp_forward() {
+    cmd := exec.Command(&quot;/sbin/sysctl&quot;, &quot;-w&quot;, &quot;net.ipv4.ip_forward=1&quot;)
+    cmd.Run()
+    cmd = exec.Command(&quot;/sbin/sysctl&quot;, &quot;-p&quot;)
+    cmd.Run()
+}
+
+// Init iptables policy
+func InitPolicy() {
+    // set honeypot chain in nat table
+    exec.Command(&quot;/sbin/iptables&quot;, &quot;-t&quot;, &quot;nat&quot;, &quot;-N&quot;, &quot;HONEYPOT&quot;).Run()
+    exec.Command(&quot;/sbin/iptables&quot;, &quot;-t&quot;, &quot;nat&quot;, &quot;-F&quot;, &quot;HONEYPOT&quot;).Run()
+    exec.Command(&quot;/sbin/iptables&quot;, &quot;-t&quot;, &quot;nat&quot;, &quot;-A&quot;, &quot;PREROUTING&quot;, &quot;-j&quot;, &quot;HONEYPOT&quot;).Run()
+    exec.Command(&quot;/sbin/iptables&quot;, &quot;-t&quot;, &quot;nat&quot;, &quot;-A&quot;, &quot;HONEYPOT&quot;, &quot;-i&quot;, interfaceName, &quot;-p&quot;, &quot;tcp&quot;, &quot;-m&quot;, &quot;state&quot;, &quot;--state&quot;, &quot;NEW,ESTABLISHED,RELATED&quot;, &quot;-j&quot;, &quot;LOG&quot;, &quot;--log-prefix&quot;, &quot;iptables &quot;).Run()
+    // set white list chain in filter table
+    exec.Command(&quot;/sbin/iptables&quot;, &quot;-t&quot;, &quot;filter&quot;, &quot;-N&quot;, &quot;WHITELIST&quot;).Run()
+    exec.Command(&quot;/sbin/iptables&quot;, &quot;-t&quot;, &quot;filter&quot;, &quot;-F&quot;, &quot;WHITELIST&quot;).Run()
+    exec.Command(&quot;/sbin/iptables&quot;, &quot;-t&quot;, &quot;filter&quot;, &quot;-A&quot;, &quot;INPUT&quot;, &quot;-j&quot;, &quot;WHITELIST&quot;).Run()
+}
+
+// Delete Policy
+func DeletePolicy() {
+    // Flush rule
+    exec.Command(&quot;/sbin/iptables&quot;, &quot;-t&quot;, &quot;nat&quot;, &quot;-F&quot;).Run()
+    exec.Command(&quot;/sbin/iptables&quot;, &quot;-t&quot;, &quot;filter&quot;, &quot;-F&quot;).Run()
+    // delete chain
+    exec.Command(&quot;/sbin/iptables&quot;, &quot;-t&quot;, &quot;nat&quot;, &quot;-X&quot;, &quot;HONEYPOT&quot;).Run()
+    exec.Command(&quot;/sbin/iptables&quot;, &quot;-t&quot;, &quot;filter&quot;, &quot;-X&quot;, &quot;WHITELIST&quot;).Run()
+}
+
+// Start Agent
+func Start(p Policys) {
+    Stop()
+    // set ip forward
+    SetIp_forward()
+    // create iptables chain
+    InitPolicy()
+    // set iptables rule
+    SetIptables(p)
+}
+
+// Stop Agent
+func Stop() {
+    // clean iptables rule and chain
+    DeletePolicy()
+}
+
+</code></pre>
+
+<h2 id="server的实现">Server的实现</h2>
+
+<p>蜜罐server使用<code>gopkg.in/mcuadros/go-syslog.v2</code>包实现了一个rsyslog server，将每条收到的rsyslog进行格式化，然后判断是否在白名单中，如果不在白名单中，然后对攻击数据进行计数（超过一定的时间后再开始从0开始计数），
+如果在规定的时间内超过配置的报警的次数后就不会再报了，防止短时间内产生大量的垃圾邮件。</p>
+
+<p>比如可以把策略设为：同一个来源的攻击者，3分钟内只发1封报警邮件，报警策略的代码如下：</p>
+<pre><code class="language-go">// check if send alarm mail
+func AlarmPolicy(redisConfig RedisConfig, sysLog map[string]interface{}) (isAlarm bool) {
+    client := redis.NewClient(&amp;redis.Options{
+        Addr:     fmt.Sprintf(&quot;%s:%d&quot;, redisConfig.Host, redisConfig.Port),
+        Password: redisConfig.Password, //  password set
+        DB:       redisConfig.Db,       // use default DB
+    })
+
+    src, ok := sysLog[&quot;src&quot;].(string)
+    if ok {
+        bRet, _ := client.Exists(src).Result()
+        if bRet {
+            client.HIncrBy(src, &quot;times&quot;, 1)
+            // client.Expire(src, time.Duration(redisConfig.Duration)*time.Minute)
+
+        } else {
+            client.HSet(src, &quot;times&quot;, &quot;1&quot;)
+            client.Expire(src, time.Duration(redisConfig.Duration)*time.Minute)
+        }
+
+        strRet, _ := client.HGet(src, &quot;times&quot;).Result()
+        ret, _ := strconv.Atoi(strRet)
+        fmt.Printf(&quot;strRet:%v, ret:%v, AlarmOffTime:%v\n&quot;, strRet, ret, redisConfig.AlarmOffTime)
+        if ret &lt;= redisConfig.AlarmOffTime {
+            isAlarm = true
+        }
+    }
+    return isAlarm
+}
+
+// send alarm mail
+func Alarm(redisConfig RedisConfig, sysLog map[string]interface{}, subject string, body string, mail_config MailConfig, alarmInfo AlarmInfo) {
+    if AlarmPolicy(redisConfig, sysLog) {
+        go SendMail(subject, body, mail_config)
+        go InsertElastic(*alarmInfo.Client, alarmInfo.EsIndex, alarmInfo.EsDocument, alarmInfo.Id, alarmInfo.LogParts)
+    }
+}
+
+</code></pre>
+
+<p>以下为server处理rsyslog的核心代码：</p>
+<pre><code class="language-go">func main() {
+    Loadconfig()
+
+    channel := make(syslog.LogPartsChannel)
+    handler := syslog.NewChannelHandler(channel)
+
+    server := syslog.NewServer()
+    server.SetFormat(syslog.Automatic)
+    server.SetHandler(handler)
+    server.ListenUDP(&quot;0.0.0.0:514&quot;)
+    server.ListenTCP(&quot;0.0.0.0:514&quot;)
+
+    server.Boot()
+
+    go func(channel syslog.LogPartsChannel) {
+        client, err := helper.ConnectElastic(es_info)
+        log.Println(client, err, syslogConfig.Backup)
+        for logParts := range channel {
+            // fmt.Printf(&quot;%V,%v\n&quot;, logParts, logParts)
+            value, ok := logParts[&quot;content&quot;].(string)
+            if ok {
+                // backup syslog to localhost
+                if syslogConfig.Backup == 1 {
+                    go helper.BackupSyslog(syslogConfig.Tag, value)
+                }
+                ret := helper.ParseLogContent(value)
+                // logParts[&quot;content&quot;] = ret
+                // fmt.Println(ret)
+                delete(logParts, &quot;content&quot;)
+                for k, v := range ret {
+                    logParts[k] = v
+                }
+                // fmt.Println(&quot;logParts: &quot;, logParts)
+                p, _ := helper.GetPolicy(Url)
+                white_list := helper.GetWhiteList(p)
+                white_ports := helper.GetWhitePort(p)
+                src := ret[&quot;src&quot;]
+                id := ret[&quot;id&quot;]
+                dpt := ret[&quot;dpt&quot;]
+
+                // for mail content template
+                var mailContent helper.MailContent
+                Timestamp, _ := logParts[&quot;timestamp&quot;].(time.Time)
+                mailContent.Timestamp = Timestamp.Format(&quot;2006-01-02 15:04:05&quot;)
+                mailContent.SrcIp, _ = logParts[&quot;src&quot;].(string)
+                mailContent.SrcHostname, _ = helper.GetHostNameByIp(mailContent.SrcIp)
+                mailContent.SrcPort, _ = logParts[&quot;spt&quot;].(string)
+                mailContent.Proto, _ = logParts[&quot;proto&quot;].(string)
+                mailContent.DestIp, _ = logParts[&quot;dst&quot;].(string)
+                mailContent.DestPort, _ = logParts[&quot;dpt&quot;].(string)
+                mailContent.Hostname, _ = logParts[&quot;hostname&quot;].(string)
+                mailContent.Color = helper.GetColor()
+
+                log.Println(white_list, src, white_ports, dpt, mailContent)
+                if !white_list[src] &amp;&amp; !white_ports[dpt] {
+                    subject := fmt.Sprintf(&quot;[蜜罐报警]%v, 截获来自%v:%v对%v:%v的攻击(%v)&quot;, mailContent.Timestamp, src, ret[&quot;spt&quot;], ret[&quot;dst&quot;], ret[&quot;dpt&quot;], ret[&quot;proto&quot;])
+                    // body, _ := json.MarshalIndent(logParts, &quot;&quot;, &quot;\t&quot;)
+                    t, _ := template.New(&quot;mail&quot;).Parse(helper.HtmlMail)
+                    var body bytes.Buffer
+                    t.Execute(&amp;body, mailContent)
+
+                    // Alarm info, save to es too
+                    var alarmInfo helper.AlarmInfo
+                    alarmInfo.Client = client
+                    alarmInfo.EsIndex = es_info.Index
+                    alarmInfo.EsDocument = es_info.DocumentAlarm
+                    alarmInfo.Id = id
+                    alarmInfo.LogParts = logParts
+
+                    go helper.Alarm(redisConfig, logParts, subject, fmt.Sprintf(&quot;%s&quot;, body.String()), mail_config, alarmInfo)
+                    
+                    go helper.InsertElastic(*client, es_info.Index, es_info.Document, id, logParts)
+                }
+            }
+            // log.Println(strings.Repeat(&quot;-&quot;, 70))
+        }
+    }(channel)
+
+    server.Wait()
+}
+
+</code></pre>
+
+<p>蜜罐的测试效果：
+<img src="/media/images_honeypot/honeypot.png" alt="honeypot" /></p>
+
+<h2 id="扩展功能">扩展功能</h2>
+
+<p>以上的Agent放在重要系统的内网网段为一个支持所有协议和端口的蜜罐，其实也可以改为一个适用于小网站的防火墙放在外网。
+做成防火墙需要做的改动如下：</p>
+
+<ol>
+<li>去掉数据转发到后端的功能</li>
+<li>设计防火墙策略（以下仅为举例，正式使用的话，需要根据对不同的端口的攻击设置不同的频率）例如：
+
+<ol>
+<li>如果1分钟内同一个IP的请求超过100，可以将攻击者的所有请求转到一个欺骗的地址（镜花水月）</li>
+<li>如果1分钟内同一个IP的请求超过300，可以将攻击者的所有请求原封不动的反弹回去（斗转星移）</li>
+<li>如果1分钟内同一个IP的请求超过600，直接将攻击者的IP Block掉，禁止访问。</li>
+</ol></li>
+</ol>
+
+<h2 id="参考资料">参考资料</h2>
+
+<ol>
+<li><a href="https://n0where.net/how-does-it-work-iptables/">How Does It Work: IPTables</a></li>
+<li><a href="http://txgcwm.github.io/blog/2013/07/25/linuxxia-iptablesfang-huo-qiang-yuan-li-ji-shi-yong/">Linux下iptables防火墙原理及使用</a></li>
+<li><a href="https://segmentfault.com/a/1190000002540601">iptables防火墙原理详解</a></li>
+</ol>
+</section>
+                    </div>
+                </div>
+            </article>
+        </div>
+        
+<section id="comment">
+    <div class="row">
+        <div class="col-md-10 col-md-offset-1">
+            <div id="disqus_thread"></div>
+            <script>
+                (function () {
+                    var d = document, s = d.createElement('script');
+                    s.src = '//xsec.disqus.com/embed.js';
+                    s.setAttribute('data-timestamp', +new Date());
+                    (d.head || d.body).appendChild(s);
+                })();
+            </script>
+            <noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript" rel="nofollow">comments
+                powered by Disqus.</a></noscript>
+        </div>
+    </div>
+    
+</section>
+
+    </div>
+</section>
+<footer id="footer">
+    <div class="container text-center">
+        <p>© 2015 记录人生旅程中的迷茫与探索.
+            <a href="http://creativecommons.org/licenses/by/3.0/">Some rights reserved </a> |
+            <a href="/feed.xml">Feed</a> |
+            <a href="/sitemap.xml">Sitemap</a>
+        </p>
+        <p>Powered by <a href="https://github.com/go-xiaohei/pugo">PuGo 0.10.0 (beta)</a>. Theme by Default.
+        </p>
+        
+    
+    
+
+    </div>
+</footer>
+<script src="/js/jquery-2.1.4.min.js"></script>
+<script src="/js/bootstrap.min.js"></script>
+<script src="/js/prism.min.js"></script>
+<script>
+    $(document).ready(function () {
+        $("pre code").addClass("line-numbers")
+    });
+</script>
+</body>
+</html>
