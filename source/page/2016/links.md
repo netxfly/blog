@@ -46,3 +46,4 @@ sort = 0
 - [www.willmcgugan.com](https://www.willmcgugan.com/blog/tech/)
 - [鸟窝](http://colobu.com/)
 - [yuehaowang的blog](http://yuehaowang.github.io/)
+- [一根笨茄子](http://blog.guoyb.com/)
