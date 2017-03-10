@@ -251,6 +251,7 @@ sort = 0
 - [Git版本控制与工作流](http://www.jianshu.com/p/67afe711c731)
 - [Git Community Book 中文版](http://gitbook.liuhui998.com/)
 - [Pro Git v2 中文版](http://wiki.jikexueyuan.com/project/pro-git-two/)
+- [GotGitHub](http://www.worldhello.net/gotgithub/)
 
 ---
 
