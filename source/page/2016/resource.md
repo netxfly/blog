@@ -127,7 +127,7 @@ sort = 0
 - [XORM操作指南](https://www.gitbook.com/book/lunny/xorm-manual-zh-cn/details)
 - [upper.io/db](https://upper.io/db)
 - [Go 语言学习资料与社区索引](https://github.com/Unknwon/go-study-index)
-- [ Go圣经 《The Go Programming Language》](http://golang-china.github.io/gopl-zh/)
+- [ Go圣经 《The Go Programming Language》](https://github.com/golang-china/gopl-zh)
 - [iris web framework](https://github.com/kataras/iris)
 
 ---
