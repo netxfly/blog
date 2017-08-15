@@ -51,3 +51,5 @@ GLOBAL OPTIONS:
 ![](https://docs.xsec.io/images/serve.png)
 
 ![](https://docs.xsec.io/images/web.png)
+
+项目地址为：https://github.com/netxfly/xsec-dns-proxy
