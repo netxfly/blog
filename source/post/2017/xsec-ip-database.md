@@ -122,3 +122,5 @@ func TestUpdateDomain(t *testing.T) {
 
 1. 恶意IP检测，[http://xsec.io:8000/api/ip/212.129.58.111](http://xsec.io:8000/api/ip/212.129.58.111)
 1. 恶意域名检测，[http://xsec.io:8000/api/domain/www.hosting2balooonba.com](http://xsec.io:8000/api/domain/www.hosting2balooonba.com)
+
+项目地址：https://github.com/netxfly/xsec-ip-database
