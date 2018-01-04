@@ -49,7 +49,7 @@ sudo sysctl -w net.inet.ip.forwarding=1
 # Linux
 sudo sysctl -w net.ipv4.ip_forward=1
 ```
-
+<!--more-->
 ### 具体实现
 
 本项目暂不会开源，本文只写原理及截取部分关键代码。

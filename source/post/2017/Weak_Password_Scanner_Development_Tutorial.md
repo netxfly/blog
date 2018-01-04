@@ -30,6 +30,8 @@ tags = ["tag"]
 
 开发完毕的项目地址为：[https://github.com/netxfly/x-crack](https://github.com/netxfly/x-crack)
 
+<!--more-->
+
 ## 开工
 ### 数据结构定义
 
