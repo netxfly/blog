@@ -107,6 +107,7 @@ sort = 0
 
 #### golang
 - [Go语言高级编程(Advanced Go Programming)](https://legacy.gitbook.com/book/chai2010/advanced-go-programming-book/details)
+- [Go语言标准库](https://github.com/polaris1119/The-Golang-Standard-Library-by-Example)
 - [awesome-go](https://github.com/avelino/awesome-go)
 - [Golang 基础代码示例](http://symphony.b3log.org/article/1425631718710)
 - [go标准库中文版](http://studygolang.com/pkgdoc)
