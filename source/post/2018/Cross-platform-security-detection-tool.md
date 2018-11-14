@@ -29,6 +29,8 @@ tags = ["tag"]
 
 项目地址：[https://github.com/netxfly/sec_check](https://github.com/netxfly/sec_check)
 
+<!--more-->
+
 ## 使用说明：
 
 - 使用帮助
