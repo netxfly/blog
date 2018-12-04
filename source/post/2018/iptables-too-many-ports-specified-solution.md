@@ -64,6 +64,8 @@ struct xt_multiport_v1 {
 
 这个时候我才恍然大悟，本来iptables就是netfilter的用户接口，最终的操作结果是传到内核级模块netfilter中的，还需要修内核中netfilter模块相对应的代码部分，经确定在以下文件中`include/uapi/linux/netfilter/xt_multiport.h`，修改完还要重新编译内核。这个方案比较麻烦，先PASS了，还是在agent中实现吧。
 
+<!--more-->
+
 ### 柳暗花明
 
 如果一条策略中的端口超过了15个，那我们将策略分成多条即可。先写一个端口数量分割的工具函数：
