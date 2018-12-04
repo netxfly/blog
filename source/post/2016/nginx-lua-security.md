@@ -1,5 +1,5 @@
 ```toml
-title = "nginx-lua-security"
+title = "浅谈nginx + lua在安全中的一些应用"
 slug = "nginx-lua-security"
 desc = "nginx-lua-security"
 date = "2016-07-08 15:55:46"
