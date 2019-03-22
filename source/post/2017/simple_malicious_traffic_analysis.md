@@ -55,7 +55,8 @@ DB_NAME = xsec-traffic
 1. database部分为mongodb的配置
 
 启动命令如下：
-```
+
+```shell
 root@xsec:/data/golang/src/xsec-traffic/server# ./server 
 [0000]  INFO xsec traffic server: DB Type: mongodb, Connect err status: <nil>
 NAME:
@@ -141,7 +142,7 @@ GLOBAL OPTIONS:
 sudo ./xsec_sensor arp -t 192.168.31.215 -g 192.168.31.1
 ```
 在启动前需要安装libpcap库并将内核参数设为允许转发，以下为3种OS的安装、设置方法：
-```
+```bash
 # OSX
 sudo sysctl net.inet.ip.forwarding=1
 
