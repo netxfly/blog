@@ -57,4 +57,5 @@ metadata = "this is meta data"
 1. [github](https://github.com/netxfly)
 1. [知乎专栏](http://zhuanlan.zhihu.com/netxfly)
 1. [微博](http://weibo.com/netxfly/)
+1. 微信: netxfly
 
