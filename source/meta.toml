@@ -22,9 +22,9 @@ cover = "@media/cover.jpg"
 
 # global language,
 # its used in global posts and themes, unless pages set lang
-lang = "cn"
+lang = "en"
 
-[[nav]]
+[nav]
 link = "/"
 title = "Home"
 i18n = "首页"
@@ -32,37 +32,37 @@ i18n = "首页"
 hover = "index"
 blank = false
 
-[[nav]]
+[nav]
 link = "/archive"
 title = "存档"
 i18n = "存档"
 hover = "archive"
 
-[[nav]]
+[nav]
 link = "/about"
 title = "关于ME"
 i18n = "关于ME"
 hover = "about"
 
-[[nav]]
+[nav]
 link = "/resource"
 title = "推荐资源"
 i18n = "推荐资源"
 hover = "resource"
 
-[[nav]]
+[nav]
 link = "/links"
 title = "友情链接"
 i18n = "友情链接"
 hover = "links"
 
-[[nav]]
+[nav]
 link = "/2019-jd"
 title = "工作机会"
 i18n = "工作机会"
 hover = "jd"
 
-[[author]]
+[author]
 name = "pugo"
 email = ""
 url = "http://www.xsec.io"
