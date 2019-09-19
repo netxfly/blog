@@ -9,7 +9,7 @@ subtitle = "路漫漫其修远兮"
 keyword = "netxfly,信息安全,程序开发,linux,人生,理想"
 
 # print in html <meta>
-desc = "信息安全,程序开发,linux,读书"
+desc = "信息安全"
 
 # build links for feed, sitemap
 domain = "www.xsec.io"
@@ -22,13 +22,13 @@ cover = "@media/cover.jpg"
 
 # global language,
 # its used in global posts and themes, unless pages set lang
-lang = "en"
+lang = "cn"
 
 
 [[nav]]
 link = "/"
 title = "Home"
-i18n = "home"
+i18n = "首页"
 # set nav to active status
 hover = "index"
 blank = false
@@ -36,26 +36,32 @@ blank = false
 [[nav]]
 link = "/archive"
 title = "Archive"
-i18n = "archive"
+i18n = "存档"
 hover = "archive"
 
 [[nav]]
 link = "/about"
 title = "About"
-i18n = "about"
+i18n = "关于ME"
 hover = "about"
 
 [[nav]]
 link = "/resource"
 title = "Resource"
-i18n = "resource"
+i18n = "推荐资源"
 hover = "resource"
 
 [[nav]]
 link = "/links"
 title = "Links"
-i18n = "links"
+i18n = "友情链接"
 hover = "links"
+
+[[nav]]
+link = "/jd"
+title = "jd"
+i18n = "工作机会"
+hover = "jd"
 
 
 [[author]]
