@@ -35,7 +35,6 @@ sort = 0
 * [raywenderlich](http://www.raywenderlich.com/)
 * [www.thinkful.com](http://www.thinkful.com/)
 * [pyramid文档](http://docs.pylonsproject.org/projects/pyramid/en/latest/)
-* [豆瓣源：http://pypi.douban.com/simple/](http://pypi.douban.com/simple/)
 - [searchcode.com](https://searchcode.com/)
 - [google](http://8.35.80.101/)
 - [Elasticsearch 权威指南](https://www.gitbook.com/book/looly/elasticsearch-the-definitive-guide-cn/details)
@@ -106,6 +105,8 @@ sort = 0
 ---
 
 #### golang
+
+- [godoc 中文](https://go-zh.org/)
 - [Go语言高级编程(Advanced Go Programming)](https://legacy.gitbook.com/book/chai2010/advanced-go-programming-book/details)
 - [Go语言标准库](https://github.com/polaris1119/The-Golang-Standard-Library-by-Example)
 - [awesome-go](https://github.com/avelino/awesome-go)
